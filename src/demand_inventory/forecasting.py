@@ -218,10 +218,9 @@ def run_lightgbm_experiment(
     calendar["date"] = pd.to_datetime(calendar["date"])
     future_calendar = calendar[calendar["date"] >= cutoff].copy()
     future_prices = pd.read_csv(paths["prices"], usecols=["store_id", "item_id", "wm_yr_wk", "sell_price"])
-    selected_keys = set(zip(static["store_id"], static["item_id"]))
-    future_prices = future_prices[
-        future_prices.apply(lambda row: (row["store_id"], row["item_id"]) in selected_keys, axis=1)
-    ]
+    selected_keys = pd.MultiIndex.from_frame(static[["store_id", "item_id"]].drop_duplicates())
+    price_keys = pd.MultiIndex.from_frame(future_prices[["store_id", "item_id"]])
+    future_prices = future_prices.loc[price_keys.isin(selected_keys)]
     price_lookup = {
         (row.store_id, row.item_id, int(row.wm_yr_wk)): float(row.sell_price)
         for row in future_prices.itertuples(index=False)
