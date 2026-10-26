@@ -1,0 +1,17 @@
+# Core data and evaluation
+numpy>=1.26,<3
+pandas>=2.1,<3
+scikit-learn>=1.4,<2
+PyYAML>=6.0
+
+# Required forecasting stack
+prophet>=1.1.5
+lightgbm>=4.3
+u8darts[torch]>=0.30
+pytorch-forecasting>=1.0
+ortools>=9.8
+plotly>=5.20
+dash>=2.16
+
+# Quality
+pytest>=8.0
