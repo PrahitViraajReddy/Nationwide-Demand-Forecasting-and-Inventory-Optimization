@@ -1,0 +1,6 @@
+# Lightweight dependencies for the public Dash demo.
+# Research/modeling dependencies remain in requirements.txt.
+numpy>=1.26,<3
+pandas>=2.1,<3
+plotly>=5.20
+ dash>=2.16
