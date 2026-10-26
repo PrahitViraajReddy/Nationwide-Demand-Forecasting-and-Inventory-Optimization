@@ -4,7 +4,7 @@ from demand_inventory.metrics import rmsse, wape
 
 
 def test_wape_known_value():
-    assert wape([10, 20], [8, 22]) == pytest.approx(0.1)
+    assert wape([10, 20], [8, 22]) == pytest.approx(4 / 30)
 
 
 def test_wape_rejects_all_zero_actuals():
