@@ -1,0 +1,27 @@
+project:
+  name: nationwide-demand-forecasting-and-inventory-optimization
+  random_seed: 42
+  timezone: UTC
+
+paths:
+  raw_data: data/raw/m5
+  processed_data: data/processed
+  artifacts: artifacts
+
+forecasting:
+  horizon_days: 28
+  validation_days: 28
+  seasonal_period: 7
+  development_series_limit: 100
+  metrics:
+    - WAPE
+    - RMSSE
+
+inventory:
+  lead_time_days: 7
+  review_period_days: 7
+  target_service_level: 0.95
+  holding_cost_per_unit_day: 0.01
+  stockout_cost_per_unit: 1.0
+  max_order_quantity: null
+  # Illustrative defaults only; replace with documented business assumptions.
