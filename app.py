@@ -4,6 +4,7 @@ The interface intentionally shows an honest empty state until evaluated forecast
 and replenishment outputs are generated; it never displays fabricated KPIs.
 """
 
+import os
 from pathlib import Path
 
 import dash
@@ -92,4 +93,9 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    # Render requires the web server to bind to all interfaces and its assigned port.
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "8050")),
+        debug=False,
+    )
