@@ -127,7 +127,7 @@ def _recursive_features(
     histories: dict[str, list[float]],
     static: pd.DataFrame,
     future_calendar: pd.DataFrame,
-    future_prices: pd.DataFrame,
+    price_lookup: dict[tuple[str, str, int], float],
     target_date: pd.Timestamp,
 ) -> pd.DataFrame:
     """Build one-day-ahead feature rows using observed history plus prior predictions."""
@@ -148,12 +148,8 @@ def _recursive_features(
         for col in EVENT_COLUMNS:
             if col in future_calendar.columns:
                 row[col] = calendar_row[col]
-        price_match = future_prices[
-            (future_prices["store_id"] == meta["store_id"])
-            & (future_prices["item_id"] == meta["item_id"])
-            & (future_prices["wm_yr_wk"] == calendar_row["wm_yr_wk"])
-        ]
-        row["sell_price"] = float(price_match["sell_price"].iloc[0]) if not price_match.empty else np.nan
+        price_key = (meta["store_id"], meta["item_id"], int(calendar_row["wm_yr_wk"]))
+        row["sell_price"] = price_lookup.get(price_key, np.nan)
         for lag in LAG_DAYS:
             row[f"lag_{lag}"] = history[-lag] if len(history) >= lag else np.nan
         for window in ROLLING_WINDOWS:
@@ -222,10 +218,18 @@ def run_lightgbm_experiment(
     calendar["date"] = pd.to_datetime(calendar["date"])
     future_calendar = calendar[calendar["date"] >= cutoff].copy()
     future_prices = pd.read_csv(paths["prices"], usecols=["store_id", "item_id", "wm_yr_wk", "sell_price"])
+    selected_keys = set(zip(static["store_id"], static["item_id"]))
+    future_prices = future_prices[
+        future_prices.apply(lambda row: (row["store_id"], row["item_id"]) in selected_keys, axis=1)
+    ]
+    price_lookup = {
+        (row.store_id, row.item_id, int(row.wm_yr_wk)): float(row.sell_price)
+        for row in future_prices.itertuples(index=False)
+    }
     predicted_rows = []
     for target_date in sorted(actual["date"].unique()):
         date = pd.Timestamp(target_date)
-        batch = _recursive_features(histories, static, future_calendar, future_prices, date)
+        batch = _recursive_features(histories, static, future_calendar, price_lookup, date)
         x = batch[feature_columns].copy()
         # Reapply the exact categorical levels seen at training.
         for column in train_x.columns:
