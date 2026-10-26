@@ -123,3 +123,12 @@ pytest
 The loader selects evenly spaced item-store series, joins the M5 calendar and weekly prices, and avoids checking the full wide sales table into Git. The experiment compares a recursive LightGBM forecast with a weekly seasonal-naive baseline. Validation predictions are recursive: after the cutoff, model predictions—not actual validation sales—feed future lag features.
 
 Outputs are written to `artifacts/` (ignored by Git): `metrics.json` and `lightgbm_validation_forecasts.csv`. Results from this limited subset are development metrics, not full M5 benchmark claims.
+
+## Render deployment
+
+For the current interactive Dash demo, set the Render service root to the repository root and use:
+
+- **Build command:** `pip install -r requirements-render.txt`
+- **Start command:** `python app.py`
+
+The lightweight deployment requirements intentionally exclude the training stack (PyTorch/Darts/TFT) so the demo does not install GPU-oriented packages just to render the dashboard. Advanced model dependencies remain in `requirements.txt` for research and training environments.
