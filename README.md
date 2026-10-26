@@ -108,3 +108,18 @@ Use chronological holdouts, never random row splits. Fit feature transformations
 ## License and attribution
 
 The M5 Forecasting dataset is associated with the Walmart forecasting competition. Review the dataset's original terms and attribution requirements before redistribution. This repository contains project code and documentation, not the dataset archive.
+
+
+## First forecasting experiment
+
+After extracting the supplied archive into `data/raw/m5/`, install dependencies and run a reproducible LightGBM development experiment:
+
+```bash
+pip install -e ".[dev]"
+python -m demand_inventory.forecasting --data-dir data/raw/m5 --series-limit 100 --horizon 28
+pytest
+```
+
+The loader selects evenly spaced item-store series, joins the M5 calendar and weekly prices, and avoids checking the full wide sales table into Git. The experiment compares a recursive LightGBM forecast with a weekly seasonal-naive baseline. Validation predictions are recursive: after the cutoff, model predictions—not actual validation sales—feed future lag features.
+
+Outputs are written to `artifacts/` (ignored by Git): `metrics.json` and `lightgbm_validation_forecasts.csv`. Results from this limited subset are development metrics, not full M5 benchmark claims.
