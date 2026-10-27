@@ -157,5 +157,6 @@ def reconcile_with_darts(forecasts: pd.DataFrame, *, method: str = "ols") -> pd.
         else "total"
     )
     result["node_id"] = result["node_id"].str.replace(r"^(item_store|store|state)::", "", regex=True)
-    result["forecast"] = result["forecast"].clip(lower=0.0)
+    # Do not clip individual reconciled nodes here: that would break additivity.
+    # If non-negativity is required, clamp bottom-level forecasts and re-aggregate.
     return result.sort_values(["date", "node_level", "node_id"]).reset_index(drop=True)
