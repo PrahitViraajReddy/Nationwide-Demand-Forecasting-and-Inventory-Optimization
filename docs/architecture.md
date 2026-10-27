@@ -1,5 +1,29 @@
 # Architecture and Design Decisions
 
+## Architecture diagram
+
+```mermaid
+flowchart TD
+    A["M5 CSVs via Git LFS"] --> B["Data discovery and validation"]
+    B --> C["Sales + calendar + weekly prices"]
+    C --> D["Chronological split and leakage-safe features"]
+    D --> E["Seasonal-naive baseline"]
+    D --> F["LightGBM experiment"]
+    D --> G["Prophet interval experiment"]
+    D --> H["TFT quantile experiment"]
+    E --> I["WAPE / RMSSE / MAE and interval coverage"]
+    F --> I
+    G --> I
+    H --> I
+    F --> J["Darts hierarchy reconciliation"]
+    J --> I
+    E --> K["OR-Tools replenishment optimizer"]
+    K --> L["Plotly Dash decision interface"]
+    I --> L
+    M["Explicit inventory assumptions"] --> K
+    N["User-uploaded long-format CSV or repository M5 sample"] --> L
+```
+
 ## End-to-end flow
 
 1. **Ingestion and validation** — read local M5 sales, calendar, and sell-price tables; validate expected files, keys, date coverage, and joins.
@@ -8,8 +32,8 @@
 4. **Forecast candidates** — seasonal-naive baseline, Prophet baseline, LightGBM global model, and a bounded Temporal Fusion Transformer experiment.
 5. **Evaluation and uncertainty** — calculate WAPE/RMSSE by item-store and aggregate level; assess prediction-interval coverage and width.
 6. **Hierarchy reconciliation** — use Darts for reconciliation experiments and verify that child forecasts sum to parent totals within numerical tolerance.
-7. **Inventory optimization** — OR-Tools converts demand distributions into order quantities using configurable lead time, service target, on-hand inventory, order limits, and cost assumptions.
-8. **Decision interface** — Plotly Dash presents filters, forecast bands, actual-versus-predicted plots, metrics, and replenishment recommendations.
+7. **Inventory optimization** — OR-Tools converts the selected forecast into an order quantity using lead time, review period, on-hand stock, order limits, and explicit holding/shortage costs.
+8. **Decision interface** — Plotly Dash presents the seasonal-naive forecast, holdout WAPE/RMSSE/MAE, CSV export, and replenishment recommendations. Advanced forecast bands and model comparison remain planned dashboard work.
 
 ## Logical components
 
