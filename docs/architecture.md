@@ -15,9 +15,9 @@
 
 - `demand_inventory.data`: dataset paths and data integrity checks.
 - `demand_inventory.metrics`: evaluation metrics.
-- Forecasting modules (planned): baselines, feature generation, LightGBM, Prophet, TFT, and reconciliation.
-- Inventory module (planned): decision variables, objective, constraints, and solver diagnostics.
-- Dash application (planned): presentation layer calling the same service functions as tests and scripts.
+- Implemented experiment modules: seasonal-naive/LightGBM (`demand_inventory.forecasting`), Prophet with intervals (`demand_inventory.prophet_model`), TFT (`demand_inventory.tft_model`), and Darts MinT plus bottom-up aggregation (`demand_inventory.hierarchy`). Model training remains an explicit local experiment; results must be generated before any model is described as validated.
+- `demand_inventory.inventory`: OR-Tools integer order decision with explicit holding/shortage costs, lead time, review period, order multiple, and order cap.
+- `app.py`: interactive Dash baseline forecast, chronological holdout metrics, CSV download, repository M5 sample loading when LFS objects are available, and OR-Tools replenishment controls. Advanced model selection, forecast-band visualization, and hierarchy exploration are not yet wired into the dashboard.
 
 ## Core design principles
 
@@ -30,7 +30,7 @@
 
 ## Inventory objective (initial formulation)
 
-Minimize expected shortage penalty plus holding cost, subject to nonnegative order quantities and any configured order/capacity constraints. The demand distribution, review period, lead time, service target, unit costs, and current inventory are inputs. The implementation must document how these inputs are estimated or assumed.
+Minimize linear holding cost on projected ending inventory plus stockout cost on unmet forecast demand. The current solver uses deterministic demand over the lead-time + review-period window, with integer order quantities, an optional maximum, and an order multiple. It does not yet model purchase cost, supplier capacity, stochastic service levels, or multi-echelon constraints. M5 supplies none of the on-hand/cost/lead-time values; the dashboard inputs are illustrative assumptions.
 
 ## Scale strategy
 
