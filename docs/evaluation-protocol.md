@@ -11,10 +11,10 @@
 
 ## Forecast metrics
 
-For actual demand (y_t) and forecast (hat y_t):
+For actual demand `y_t` and forecast `yhat_t`:
 
-- **WAPE** = (sum_t |y_t-hat y_t| / sum_t |y_t|). It is undefined when total absolute actual demand is zero.
-- **MAE** = mean (|y_t-hat y_t|), in units sold.
+- **WAPE** = `sum(abs(y_t - yhat_t)) / sum(abs(y_t))`. It is undefined when total absolute actual demand is zero.
+- **MAE** = `mean(abs(y_t - yhat_t))`, in units sold.
 - **RMSSE** = square root of mean squared forecast error divided by the training-history mean squared seasonal-naive difference. Use seasonal period 7 for daily demand when evaluating against a weekly seasonal pattern.
 - **Interval coverage** = fraction of actuals inside the reported lower/upper bounds.
 - **Mean interval width** = average upper minus lower bound. Coverage must be interpreted together with width; wide intervals can achieve high coverage without being useful.
