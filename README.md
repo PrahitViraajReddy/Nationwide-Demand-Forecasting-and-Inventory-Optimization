@@ -101,6 +101,13 @@ Use chronological holdouts, never random row splits. Fit feature transformations
 - M5 does not provide every operational input needed for real replenishment (for example, true lead times and holding costs). Such inputs must be configurable and clearly labeled as assumptions.
 - The full dataset and Temporal Fusion Transformer can be computationally expensive. Begin with a reproducible subset for development, then scale evaluation deliberately.
 
+## Project documentation
+
+- [Architecture and design decisions](docs/architecture.md)
+- [M5 data dictionary and join rules](docs/data-dictionary.md)
+- [Forecast and inventory evaluation protocol](docs/evaluation-protocol.md)
+- [10-minute final presentation outline](docs/final-presentation-outline.md)
+
 ## Deliverables
 
 - Reproducible forecasting and inventory workflow
