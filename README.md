@@ -50,7 +50,7 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 Check that the local M5 files are present and readable:
@@ -126,6 +126,8 @@ pytest
 ```
 
 The loader selects evenly spaced item-store series, joins the M5 calendar and weekly prices, and reads the wide sales table in chunks. It supports CSVs stored at the repository root through Git LFS or under `data/raw/m5/`. The experiment compares a recursive LightGBM forecast with a weekly seasonal-naive baseline. Validation predictions are recursive: after the cutoff, model predictions—not actual validation sales—feed future lag features.
+
+Additional reusable modules now provide a Prophet benchmark with interval-coverage metrics (`demand_inventory.prophet_model`), bottom-up store/state/total aggregation plus an optional Darts MinT reconciler (`demand_inventory.hierarchy`), and cost-based OR-Tools replenishment (`demand_inventory.inventory`). The full TFT training workflow and dashboard integration of these model outputs remain to be completed and validated.
 
 Outputs are written to `artifacts/` (ignored by Git): `metrics.json` and `lightgbm_validation_forecasts.csv`. Results from this limited subset are development metrics, not full M5 benchmark claims.
 
