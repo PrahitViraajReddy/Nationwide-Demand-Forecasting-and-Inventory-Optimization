@@ -7,7 +7,7 @@ body { margin: 0; background: #f4f7fb; color: #182230; font-family: Inter, Segoe
 h1 { font-size: clamp(28px, 4vw, 42px); line-height: 1.1; margin: 12px 0; }
 h2 { margin-top: 0; }
 .subtitle { max-width: 780px; line-height: 1.65; color: #e2ecf7; }
-.status-grid, .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.status-grid, .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
 .status-card, .panel, .metric-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 8px 24px rgba(16, 42, 67, .04); }
 .status-card { display: flex; flex-direction: column; gap: 10px; padding: 20px; }
 .status-card span, .metric-card span { font-size: 11px; letter-spacing: 1px; color: #64748b; font-weight: 700; }
