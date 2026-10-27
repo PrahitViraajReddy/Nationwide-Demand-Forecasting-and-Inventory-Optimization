@@ -65,7 +65,7 @@ Run tests:
 pytest
 ```
 
-Launch the dashboard after its first complete workflow is implemented:
+Launch the interactive baseline dashboard with optional M5 sample loading and OR-Tools replenishment:
 
 ```bash
 python app.py
@@ -78,7 +78,7 @@ app.py
 configs/
   default.yaml
 data/
-  raw/m5/                 # local only; excluded from Git
+  raw/m5/                 # optional local copy; excluded from Git; root CSVs are Git LFS-backed
 docs/
   architecture.md
   data-dictionary.md
@@ -112,7 +112,7 @@ Use chronological holdouts, never random row splits. Fit feature transformations
 
 ## License and attribution
 
-The M5 Forecasting dataset is associated with the Walmart forecasting competition. Review the dataset's original terms and attribution requirements before redistribution. This repository contains project code and documentation, not the dataset archive.
+The M5 Forecasting dataset is associated with the Walmart forecasting competition. Review the dataset's original terms and attribution requirements before redistribution. The CSVs are stored as Git LFS objects in this repository; the LFS objects must be downloaded before the code can read them.
 
 
 ## First forecasting experiment
@@ -127,7 +127,7 @@ pytest
 
 The loader selects evenly spaced item-store series, joins the M5 calendar and weekly prices, and reads the wide sales table in chunks. It supports CSVs stored at the repository root through Git LFS or under `data/raw/m5/`. The experiment compares a recursive LightGBM forecast with a weekly seasonal-naive baseline. Validation predictions are recursive: after the cutoff, model predictions—not actual validation sales—feed future lag features.
 
-Additional reusable modules now provide a Prophet benchmark with interval-coverage metrics (`demand_inventory.prophet_model`), bottom-up store/state/total aggregation plus an optional Darts MinT reconciler (`demand_inventory.hierarchy`), and cost-based OR-Tools replenishment (`demand_inventory.inventory`). The full TFT training workflow and dashboard integration of these model outputs remain to be completed and validated.
+Additional modules provide a Prophet benchmark with interval-coverage metrics (`demand_inventory.prophet_model`), a bounded TFT training experiment (`demand_inventory.tft_model`), bottom-up store/state/total aggregation plus an optional Darts MinT reconciler (`demand_inventory.hierarchy`), and cost-based OR-Tools replenishment (`demand_inventory.inventory`). The Dash interface currently uses the seasonal-naive forecast and OR-Tools replenishment; Prophet, LightGBM, TFT, and Darts workflows are separate experiments and are not yet selectable in the dashboard.
 
 Outputs are written to `artifacts/` (ignored by Git): `metrics.json` and `lightgbm_validation_forecasts.csv`. Results from this limited subset are development metrics, not full M5 benchmark claims.
 
@@ -138,4 +138,4 @@ For the current interactive Dash demo, set the Render service root to the reposi
 - **Build command:** `pip install -r requirements-render.txt`
 - **Start command:** `python app.py`
 
-The lightweight deployment requirements intentionally exclude the training stack (PyTorch/Darts/TFT) so the demo does not install GPU-oriented packages just to render the dashboard. Advanced model dependencies remain in `requirements.txt` for research and training environments.
+The deployment requirements include Dash and OR-Tools for the baseline forecasting and replenishment workflow, but intentionally exclude the training stack (Prophet, LightGBM, PyTorch Forecasting, and Darts). Advanced model experiments run in a full local environment. If the deployed service does not download Git LFS objects, the repository-sample button will show an actionable data-loading error; the manual CSV upload remains available.
