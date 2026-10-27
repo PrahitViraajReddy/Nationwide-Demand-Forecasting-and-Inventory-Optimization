@@ -20,6 +20,18 @@ from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 ROOT = Path(__file__).resolve().parent
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
+
+def empty_figure():
+    fig = go.Figure()
+    fig.update_layout(
+        template="plotly_white", height=390, margin={"l": 25, "r": 20, "t": 35, "b": 25},
+        xaxis_title="Date", yaxis_title="Units sold",
+        annotations=[{"text": "Upload demand history and generate a forecast", "xref": "paper",
+                      "yref": "paper", "x": 0.5, "y": 0.5, "showarrow": False, "font": {"size": 15}}],
+    )
+    return fig
+
+
 app = Dash(__name__, title="Retail Demand & Inventory Intelligence")
 app.layout = html.Div(
     className="page",
@@ -138,17 +150,6 @@ app.layout = html.Div(
         dcc.Store(id="forecast-store"),
     ],
 )
-
-
-def empty_figure():
-    fig = go.Figure()
-    fig.update_layout(
-        template="plotly_white", height=390, margin={"l": 25, "r": 20, "t": 35, "b": 25},
-        xaxis_title="Date", yaxis_title="Units sold",
-        annotations=[{"text": "Upload demand history and generate a forecast", "xref": "paper",
-                      "yref": "paper", "x": 0.5, "y": 0.5, "showarrow": False, "font": {"size": 15}}],
-    )
-    return fig
 
 
 def parse_upload(contents: str) -> pd.DataFrame:
