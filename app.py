@@ -99,7 +99,40 @@ app.layout = html.Div(
             ],
             className="panel",
         ),
-        html.Footer("Reproducible retail forecasting · interactive baseline demo"),
+        html.Section(
+            [
+                html.H2("3. Replenishment decision"),
+                html.P(
+                    "Optimize an order against the selected series' forecast using explicit holding and stockout costs. "
+                    "This is a deterministic planning scenario, not a claim of realized savings."
+                ),
+                html.Div(
+                    [
+                        html.Div([html.Label("On-hand inventory (units)"), dcc.Input(id="on-hand-input", type="number", min=0, value=20, step=1)]),
+                        html.Div([html.Label("Lead time (days)"), dcc.Input(id="lead-time-input", type="number", min=0, value=7, step=1)]),
+                        html.Div([html.Label("Review period (days)"), dcc.Input(id="review-period-input", type="number", min=0, value=7, step=1)]),
+                        html.Div([html.Label("Holding cost / unit"), dcc.Input(id="holding-cost-input", type="number", min=0, value=0.01, step=0.01)]),
+                        html.Div([html.Label("Stockout cost / unit"), dcc.Input(id="stockout-cost-input", type="number", min=0, value=1.0, step=0.1)]),
+                        html.Div([html.Label("Maximum order quantity"), dcc.Input(id="max-order-input", type="number", min=0, value=500, step=1)]),
+                        html.Div([html.Label("Order multiple"), dcc.Input(id="order-multiple-input", type="number", min=1, value=1, step=1)]),
+                    ],
+                    className="inventory-controls",
+                ),
+                html.Button("Optimize replenishment", id="optimize-inventory-button", n_clicks=0, className="primary-button"),
+                html.Div(id="inventory-summary", className="message"),
+                html.Div(
+                    [
+                        html.Div([html.Span("Recommended order"), html.Strong("—", id="order-quantity")], className="metric-card"),
+                        html.Div([html.Span("Projected ending stock"), html.Strong("—", id="ending-inventory")], className="metric-card"),
+                        html.Div([html.Span("Projected shortage"), html.Strong("—", id="projected-shortage")], className="metric-card"),
+                        html.Div([html.Span("Modeled cost"), html.Strong("—", id="modeled-cost")], className="metric-card"),
+                    ],
+                    className="metric-grid",
+                ),
+            ],
+            className="panel",
+        ),
+        html.Footer("Reproducible retail forecasting · baseline forecast + constrained replenishment"),
         dcc.Store(id="data-store"),
         dcc.Store(id="forecast-store"),
     ],
@@ -270,6 +303,65 @@ def download_forecast(n_clicks, rows):
     if not rows:
         return no_update
     return dcc.send_data_frame(pd.DataFrame(rows).to_csv, "demand_forecast.csv", index=False)
+
+
+@app.callback(
+    Output("inventory-summary", "children"),
+    Output("order-quantity", "children"),
+    Output("ending-inventory", "children"),
+    Output("projected-shortage", "children"),
+    Output("modeled-cost", "children"),
+    Input("optimize-inventory-button", "n_clicks"),
+    State("forecast-store", "data"),
+    State("on-hand-input", "value"),
+    State("lead-time-input", "value"),
+    State("review-period-input", "value"),
+    State("holding-cost-input", "value"),
+    State("stockout-cost-input", "value"),
+    State("max-order-input", "value"),
+    State("order-multiple-input", "value"),
+    prevent_initial_call=True,
+)
+def optimize_inventory(n_clicks, forecast_rows, on_hand, lead_time, review_period, holding_cost, stockout_cost, max_order, order_multiple):
+    if not forecast_rows:
+        return "Generate a forecast before optimizing replenishment.", "—", "—", "—", "—"
+    try:
+        from demand_inventory.inventory import optimize_replenishment
+
+        lead_time = int(lead_time or 0)
+        review_period = int(review_period or 0)
+        coverage = lead_time + review_period
+        if coverage < 1:
+            raise ValueError("Lead time plus review period must be at least one day.")
+        forecast_frame = pd.DataFrame(forecast_rows).sort_values("date")
+        if coverage > len(forecast_frame):
+            raise ValueError(
+                f"The selected forecast covers {len(forecast_frame)} days, but the planning window needs {coverage}. "
+                "Increase the forecast horizon or reduce lead time/review period."
+            )
+        decision = optimize_replenishment(
+            forecast_frame["forecast"].head(coverage).to_numpy(dtype=float),
+            on_hand_inventory=float(on_hand or 0),
+            lead_time_days=lead_time,
+            review_period_days=review_period,
+            holding_cost_per_unit=float(holding_cost or 0),
+            stockout_cost_per_unit=float(stockout_cost or 0),
+            max_order_quantity=int(max_order) if max_order is not None else None,
+            order_multiple=int(order_multiple or 1),
+        )
+        summary = (
+            f"Optimized for {decision.expected_demand:.1f} forecast units over {coverage} days. "
+            "Costs are illustrative inputs and exclude purchase costs and supplier constraints."
+        )
+        return (
+            summary,
+            f"{decision.order_quantity:,} units",
+            f"{decision.projected_ending_inventory:.1f} units",
+            f"{decision.projected_shortage:.1f} units",
+            f"{decision.modeled_total_cost:.2f}",
+        )
+    except (ValueError, ImportError, RuntimeError) as exc:
+        return f"Optimization unavailable: {exc}", "—", "—", "—", "—"
 
 
 if __name__ == "__main__":
