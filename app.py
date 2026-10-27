@@ -83,6 +83,7 @@ app.layout = html.Div(
                 html.Div(
                     [
                         html.Div([html.Span("Validation WAPE"), html.Strong("—", id="wape-value")], className="metric-card"),
+                        html.Div([html.Span("Validation RMSSE"), html.Strong("—", id="rmsse-value")], className="metric-card"),
                         html.Div([html.Span("Validation MAE"), html.Strong("—", id="mae-value")], className="metric-card"),
                         html.Div([html.Span("Rows forecast"), html.Strong("0", id="forecast-count")], className="metric-card"),
                     ],
@@ -236,6 +237,7 @@ def load_upload(contents, m5_clicks, filename):
     Output("forecast-chart", "figure"),
     Output("forecast-summary", "children"),
     Output("wape-value", "children"),
+    Output("rmsse-value", "children"),
     Output("mae-value", "children"),
     Output("forecast-count", "children"),
     Output("metric-status", "children"),
@@ -248,13 +250,13 @@ def load_upload(contents, m5_clicks, filename):
 )
 def make_forecast(n_clicks, payload, selected_series, horizon):
     if not payload or not selected_series:
-        return empty_figure(), "Upload valid data and select a series first.", "—", "—", "0", "Awaiting data", None
+        return empty_figure(), "Upload valid data and select a series first.", "—", "—", "—", "0", "Awaiting data", None
     frame = pd.DataFrame(payload)
     frame["date"] = pd.to_datetime(frame["date"])
     history = frame.loc[frame["series_id"] == selected_series].sort_values("date").copy()
     history = history.drop_duplicates("date", keep="last")
     if len(history) < 14:
-        return empty_figure(), "At least 14 daily observations are required for a weekly seasonal baseline.", "—", "—", "0", "Insufficient history", None
+        return empty_figure(), "At least 14 daily observations are required for a weekly seasonal baseline.", "—", "—", "—", "0", "Insufficient history", None
     if not history["date"].is_monotonic_increasing:
         history = history.sort_values("date")
     observed = history["sales"].astype(float).to_numpy()
@@ -275,9 +277,16 @@ def make_forecast(n_clicks, payload, selected_series, horizon):
         mae_value = float(np.mean(np.abs(actual - validation_pred)))
         wape_text = f"{wape_value:.1%}" if wape_value is not None else "Undefined (zero actual demand)"
         mae_text = f"{mae_value:.2f} units"
+        try:
+            from demand_inventory.metrics import rmsse
+
+            rmsse_value = rmsse(actual, validation_pred, train, seasonal_period=7)
+            rmsse_text = f"{rmsse_value:.3f}"
+        except ValueError:
+            rmsse_text = "Undefined"
         metric_status = "Validation evaluated"
     else:
-        wape_text, mae_text, metric_status = "—", "—", "Insufficient validation history"
+        wape_text, rmsse_text, mae_text, metric_status = "—", "—", "—", "Insufficient validation history"
 
     fig = go.Figure()
     recent = history.tail(90)
@@ -290,7 +299,7 @@ def make_forecast(n_clicks, payload, selected_series, horizon):
                       margin={"l": 25, "r": 20, "t": 35, "b": 25},
                       xaxis_title="Date", yaxis_title="Units sold", legend={"orientation": "h", "y": 1.08})
     summary = f"{selected_series}: {len(history):,} observations through {last_date.date()}; forecasting {horizon} days."
-    return fig, summary, wape_text, mae_text, str(len(forecast)), metric_status, forecast.assign(date=forecast["date"].dt.strftime("%Y-%m-%d")).to_dict("records")
+    return fig, summary, wape_text, rmsse_text, mae_text, str(len(forecast)), metric_status, forecast.assign(date=forecast["date"].dt.strftime("%Y-%m-%d")).to_dict("records")
 
 
 @app.callback(
