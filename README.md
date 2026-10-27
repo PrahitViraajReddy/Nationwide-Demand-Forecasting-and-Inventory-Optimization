@@ -26,13 +26,18 @@ Python · pandas · NumPy · scikit-learn · Prophet · LightGBM · Darts · PyT
 
 ## M5 data
 
-Extract the supplied M5 archive locally. Expected files:
+The repository currently tracks the five supplied CSVs through **Git LFS**: `calendar.csv`, `sales_train_validation.csv`, `sales_train_evaluation.csv`, `sell_prices.csv`, and `sample_submission.csv`. The code supports either this repository-root layout or a local `data/raw/m5/` directory.
 
-- `sales_train_validation.csv` or `sales_train_evaluation.csv`
-- `calendar.csv`
-- `sell_prices.csv`
+Install Git LFS before cloning or pulling the data:
 
-Place them under `data/raw/m5/`. The archive is intentionally not committed: it is large and should remain outside Git. Do not commit generated model artifacts or private data.
+```bash
+git lfs install
+git lfs pull
+```
+
+If a CSV begins with `version https://git-lfs.github.com/spec/v1`, Git has checked out the pointer rather than the data. Run the commands above before running the pipeline. For deployment, ensure the build environment downloads the LFS objects or configure external data storage; do not assume that a pointer file is a readable CSV.
+
+The dataset is large. Keep processed data, generated features, checkpoints, and model artifacts out of ordinary Git commits.
 
 ## Quick start
 
@@ -120,7 +125,7 @@ python -m demand_inventory.forecasting --data-dir data/raw/m5 --series-limit 100
 pytest
 ```
 
-The loader selects evenly spaced item-store series, joins the M5 calendar and weekly prices, and avoids checking the full wide sales table into Git. The experiment compares a recursive LightGBM forecast with a weekly seasonal-naive baseline. Validation predictions are recursive: after the cutoff, model predictions—not actual validation sales—feed future lag features.
+The loader selects evenly spaced item-store series, joins the M5 calendar and weekly prices, and reads the wide sales table in chunks. It supports CSVs stored at the repository root through Git LFS or under `data/raw/m5/`. The experiment compares a recursive LightGBM forecast with a weekly seasonal-naive baseline. Validation predictions are recursive: after the cutoff, model predictions—not actual validation sales—feed future lag features.
 
 Outputs are written to `artifacts/` (ignored by Git): `metrics.json` and `lightgbm_validation_forecasts.csv`. Results from this limited subset are development metrics, not full M5 benchmark claims.
 
