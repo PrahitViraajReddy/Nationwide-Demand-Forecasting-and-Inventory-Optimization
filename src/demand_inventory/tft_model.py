@@ -13,6 +13,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .metrics import wape
+from .prophet_model import interval_metrics
+
 
 def prepare_tft_frame(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[str], list[str]]:
     """Validate data and prepare known/static covariates for PyTorch Forecasting."""
@@ -147,42 +150,62 @@ def train_tft_experiment(
 
     prediction_result = model.predict(
         validation_loader,
-        mode="prediction",
+        mode="quantiles",
         return_index=True,
         trainer_kwargs={"accelerator": "auto", "devices": 1},
     )
-    predictions = prediction_result.output if hasattr(prediction_result, "output") else prediction_result
-    if isinstance(predictions, tuple):
-        predictions = predictions[0]
-    prediction_array = predictions.detach().cpu().numpy() if hasattr(predictions, "detach") else np.asarray(predictions)
-    # QuantileLoss predictions contain quantiles on the final axis; use the median (0.5).
-    if prediction_array.ndim == 3:
-        quantiles = list(QuantileLoss().quantiles)
-        median_index = min(range(len(quantiles)), key=lambda index: abs(quantiles[index] - 0.5))
-        point_predictions = prediction_array[:, :, median_index]
-        lower_index = min(range(len(quantiles)), key=lambda index: abs(quantiles[index] - 0.1))
-        upper_index = min(range(len(quantiles)), key=lambda index: abs(quantiles[index] - 0.9))
-        lower_predictions = prediction_array[:, :, lower_index]
-        upper_predictions = prediction_array[:, :, upper_index]
-    else:
-        point_predictions = prediction_array
-        lower_predictions = prediction_array
-        upper_predictions = prediction_array
+    prediction_array = prediction_result.output.detach().cpu().numpy()
+    prediction_index = prediction_result.index
+    quantiles = list(model.loss.quantiles)
+    median_index = min(range(len(quantiles)), key=lambda index: abs(quantiles[index] - 0.5))
+    lower_index = min(range(len(quantiles)), key=lambda index: abs(quantiles[index] - 0.1))
+    upper_index = min(range(len(quantiles)), key=lambda index: abs(quantiles[index] - 0.9))
 
-    index_frame = prediction_result.index if hasattr(prediction_result, "index") else None
-    # The output object/index API varies across PyTorch Forecasting versions.
-    # Save model/checkpoint metadata even if the caller chooses its own inference adapter.
+    date_lookup = data[["time_idx", "date"]].drop_duplicates().set_index("time_idx")["date"].to_dict()
+    actual_lookup = data.set_index(["id", "time_idx"])["sales"].to_dict()
+    forecast_rows = []
+    for batch_position, index_row in prediction_index.reset_index(drop=True).iterrows():
+        series_id = str(index_row["id"])
+        first_idx = int(index_row["time_idx_first_prediction"])
+        for step in range(horizon):
+            time_idx = first_idx + step
+            if time_idx not in date_lookup:
+                continue
+            forecast_rows.append({
+                "id": series_id,
+                "date": pd.Timestamp(date_lookup[time_idx]),
+                "actual": float(actual_lookup[(series_id, time_idx)]),
+                "forecast": max(0.0, float(prediction_array[batch_position, step, median_index])),
+                "lower": max(0.0, float(prediction_array[batch_position, step, lower_index])),
+                "upper": max(0.0, float(prediction_array[batch_position, step, upper_index])),
+            })
+    forecasts = pd.DataFrame(forecast_rows)
+    if forecasts.empty:
+        raise RuntimeError("TFT returned no aligned validation forecasts")
+    forecasts["lower"] = np.minimum(forecasts["lower"], forecasts["forecast"])
+    forecasts["upper"] = np.maximum(forecasts["upper"], forecasts["forecast"])
+    forecasts.to_csv(output_dir / "tft_validation_forecasts.csv", index=False)
+    try:
+        wape_value = wape(forecasts["actual"], forecasts["forecast"])
+    except ValueError:
+        wape_value = None
+    interval_result = interval_metrics(forecasts["actual"], forecasts["lower"], forecasts["upper"])
+    checkpoint = output_dir / "tft_model.ckpt"
     metadata = {
         "model": "TemporalFusionTransformer",
-        "series_count": int(data["id"].nunique()),
+        "series_count": int(forecasts["id"].nunique()),
         "horizon_days": int(horizon),
         "max_encoder_length": int(max_encoder_length),
         "max_epochs": int(max_epochs),
         "training_cutoff_time_idx": int(cutoff),
+        "validation_start": str(forecasts["date"].min().date()),
+        "validation_end": str(forecasts["date"].max().date()),
+        "wape": wape_value,
+        "interval_coverage_10_90": interval_result["coverage"],
+        "mean_interval_width_10_90": interval_result["mean_interval_width"],
         "checkpoint": str(checkpoint),
-        "prediction_shape": list(np.asarray(point_predictions).shape),
-        "validation_index_available": index_frame is not None,
-        "note": "Quantile outputs are model estimates; interval coverage must be evaluated on held-out actuals.",
+        "forecast_file": str(output_dir / "tft_validation_forecasts.csv"),
+        "note": "Development subset results only; evaluate on a separate untouched test window before reporting final performance.",
     }
     (output_dir / "tft_metrics.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return metadata
