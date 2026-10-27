@@ -65,7 +65,7 @@ Run tests:
 pytest
 ```
 
-Launch the interactive baseline dashboard with optional M5 sample loading and OR-Tools replenishment:
+Launch the interactive baseline dashboard. It automatically loads a small sample from the repository's M5 Git LFS dataset; uploading a CSV is optional. OR-Tools powers the replenishment scenario:
 
 ```bash
 python app.py
@@ -145,4 +145,4 @@ For the current interactive Dash demo, set the Render service root to the reposi
 - **Build command:** `pip install -r requirements-render.txt`
 - **Start command:** `python app.py`
 
-The deployment requirements include Dash and OR-Tools for the baseline forecasting and replenishment workflow, but intentionally exclude the training stack (Prophet, LightGBM, PyTorch Forecasting, and Darts). Advanced model experiments run in a full local environment. If the deployed service does not download Git LFS objects, the repository-sample button will show an actionable data-loading error; the manual CSV upload remains available.
+The deployment requirements include Dash and OR-Tools for the baseline forecasting and replenishment workflow, but intentionally exclude the training stack (Prophet, LightGBM, PyTorch Forecasting, and Darts). Advanced model experiments run in a full local environment. On page startup, the dashboard automatically attempts to load the first 20 item-store series from the M5 CSV files already tracked in the repository through Git LFS. No manual CSV upload is required. If Render checks out LFS pointer files instead of the actual dataset, the dashboard will show a clear data-loading error; fix Git LFS object access in the deployment rather than uploading the dataset again.
