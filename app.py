@@ -1,8 +1,8 @@
 """Interactive Dash demo for retail demand forecasting.
 
-Upload a small long-format CSV with columns date,sales and optionally id/item_id/store_id.
-The app generates a weekly seasonal-naive forecast from the uploaded observed history.
-It does not pretend the M5 dataset or trained models are bundled with the deployment.
+The app automatically attempts to load a small sample from the repository's M5 Git LFS
+dataset. Uploading a custom long-format CSV (date,sales and optional series identifiers)
+is an optional alternative, not a requirement.
 """
 from __future__ import annotations
 
@@ -41,8 +41,8 @@ app.layout = html.Div(
                 html.P("RETAIL INTELLIGENCE / FORECAST LAB", className="eyebrow"),
                 html.H1("Demand Forecasting & Inventory Optimization"),
                 html.P(
-                    "Upload observed demand, generate a transparent baseline forecast, "
-                    "and inspect the validation error before adding advanced models.",
+                    "The repository's M5 dataset loads automatically when available. Generate a transparent "
+                    "baseline forecast and inspect validation error; custom CSV upload is optional.",
                     className="subtitle",
                 ),
             ],
@@ -51,7 +51,7 @@ app.layout = html.Div(
         html.Section(
             [
                 html.Div([html.Span("FORECAST METHOD"), html.Strong("Weekly seasonal naive")], className="status-card"),
-                html.Div([html.Span("INPUT DATA"), html.Strong("Upload required", id="data-status")], className="status-card"),
+                html.Div([html.Span("INPUT DATA"), html.Strong("Loading M5 dataset…", id="data-status")], className="status-card"),
                 html.Div([html.Span("EVALUATION"), html.Strong("Awaiting data", id="metric-status")], className="status-card"),
             ],
             className="status-grid",
@@ -60,8 +60,8 @@ app.layout = html.Div(
             [
                 html.H2("1. Load observed demand"),
                 html.P(
-                    "Upload a small CSV in long format with date and sales columns. Optional series identifiers: "
-                    "id, item_id, store_id. One row should represent one series on one date."
+                    "The app automatically loads the first 20 item-store series from the M5 dataset already tracked "
+                    "in this repository. No re-upload is needed. You can optionally upload a custom CSV instead."
                 ),
                 dcc.Upload(
                     id="upload-data",
@@ -69,9 +69,9 @@ app.layout = html.Div(
                     className="upload-box",
                     multiple=False,
                 ),
-                html.P("Required columns: date, sales · Optional: id, item_id, store_id", className="muted"),
-                html.Button("Load M5 sample from repository", id="load-m5-button", n_clicks=0, className="secondary-button"),
-                html.P("Loads the first 20 M5 item-store series when Git LFS data files are available.", className="muted"),
+                html.P("Optional custom CSV columns: date, sales · Optional identifiers: id, item_id, store_id", className="muted"),
+                html.Button("Reload M5 sample from repository", id="load-m5-button", n_clicks=0, className="secondary-button"),
+                html.P("The M5 sample is loaded automatically on page startup. This button retries the same repository data load.", className="muted"),
                 html.Div(id="upload-message", className="message"),
                 html.Div(
                     [
@@ -148,6 +148,7 @@ app.layout = html.Div(
         html.Footer("Reproducible retail forecasting · baseline forecast + constrained replenishment"),
         dcc.Store(id="data-store"),
         dcc.Store(id="forecast-store"),
+        dcc.Interval(id="startup-load", interval=500, max_intervals=1),
     ],
 )
 
@@ -209,19 +210,23 @@ def load_repository_m5_sample(series_limit: int = 20) -> pd.DataFrame:
     Output("data-status", "children"),
     Input("upload-data", "contents"),
     Input("load-m5-button", "n_clicks"),
+    Input("startup-load", "n_intervals"),
     State("upload-data", "filename"),
     prevent_initial_call=True,
 )
-def load_upload(contents, m5_clicks, filename):
+def load_upload(contents, m5_clicks, startup_intervals, filename):
     if ctx.triggered_id == "load-m5-button":
         if not m5_clicks:
+            return no_update, no_update, no_update, no_update, no_update
+    elif ctx.triggered_id == "startup-load":
+        if not startup_intervals:
             return no_update, no_update, no_update, no_update, no_update
     elif not contents:
         return no_update, no_update, no_update, no_update, no_update
     try:
-        if ctx.triggered_id == "load-m5-button":
+        if ctx.triggered_id in ("load-m5-button", "startup-load"):
             frame = load_repository_m5_sample()
-            source = "repository M5 sample"
+            source = "repository M5 dataset"
         else:
             frame = parse_upload(contents)
             source = filename or "uploaded CSV"
@@ -231,7 +236,7 @@ def load_upload(contents, m5_clicks, filename):
         msg = f"Loaded {len(frame):,} daily rows across {len(series):,} series from {source}."
         return payload, options, series[0], msg, f"{len(series):,} series loaded"
     except (ValueError, FileNotFoundError, RuntimeError, ImportError) as exc:
-        return None, [], None, f"Data load error: {exc}", "Data unavailable"
+        return None, [], None, f"Could not load the repository M5 dataset: {exc} You do not need to upload the dataset again; check that Render has downloaded the Git LFS files.", "M5 data unavailable"
 
 
 @app.callback(
