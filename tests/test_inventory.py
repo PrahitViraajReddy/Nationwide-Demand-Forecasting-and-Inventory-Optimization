@@ -23,7 +23,6 @@ def test_replenishment_rejects_negative_inputs():
 
 
 def test_ortools_replenishment_finds_cost_minimizing_order():
-    pytest.importorskip("ortools")
     result = optimize_replenishment(
         [4, 5, 3],
         on_hand_inventory=2,
@@ -38,7 +37,6 @@ def test_ortools_replenishment_finds_cost_minimizing_order():
 
 
 def test_replenishment_respects_order_multiple_and_cap():
-    pytest.importorskip("ortools")
     result = optimize_replenishment(
         [4, 5, 3],
         on_hand_inventory=0,
