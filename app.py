@@ -9,14 +9,17 @@ from __future__ import annotations
 import base64
 import io
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, State, dcc, html, no_update
+from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 
 ROOT = Path(__file__).resolve().parent
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 app = Dash(__name__, title="Retail Demand & Inventory Intelligence")
 app.layout = html.Div(
     className="page",
@@ -55,6 +58,8 @@ app.layout = html.Div(
                     multiple=False,
                 ),
                 html.P("Required columns: date, sales · Optional: id, item_id, store_id", className="muted"),
+                html.Button("Load M5 sample from repository", id="load-m5-button", n_clicks=0, className="secondary-button"),
+                html.P("Loads the first 20 M5 item-store series when Git LFS data files are available.", className="muted"),
                 html.Div(id="upload-message", className="message"),
                 html.Div(
                     [
@@ -141,6 +146,26 @@ def parse_upload(contents: str) -> pd.DataFrame:
     return frame
 
 
+def load_repository_m5_sample(series_limit: int = 20) -> pd.DataFrame:
+    """Load a small real M5 sample from Git LFS-backed files without reading all rows."""
+    from demand_inventory.data import validate_m5_files
+
+    paths = validate_m5_files(ROOT)
+    sales = pd.read_csv(paths["sales"], nrows=series_limit)
+    id_columns = [column for column in ("id", "item_id", "store_id") if column in sales.columns]
+    day_columns = [column for column in sales.columns if column.startswith("d_")]
+    if not id_columns or not day_columns:
+        raise ValueError("The repository sales CSV does not have the expected M5 wide format.")
+    long = sales.melt(id_vars=id_columns, value_vars=day_columns, var_name="d", value_name="sales")
+    calendar = pd.read_csv(paths["calendar"], usecols=["d", "date"])
+    calendar["date"] = pd.to_datetime(calendar["date"], errors="coerce")
+    long = long.merge(calendar, on="d", how="left", validate="many_to_one")
+    long["sales"] = pd.to_numeric(long["sales"], errors="coerce")
+    long = long.dropna(subset=["date", "sales"])
+    long["series_id"] = long["id"].astype(str)
+    return long.groupby(["series_id", "date"], as_index=False)["sales"].sum().sort_values(["series_id", "date"])
+
+
 @app.callback(
     Output("data-store", "data"),
     Output("series-select", "options"),
@@ -148,21 +173,30 @@ def parse_upload(contents: str) -> pd.DataFrame:
     Output("upload-message", "children"),
     Output("data-status", "children"),
     Input("upload-data", "contents"),
+    Input("load-m5-button", "n_clicks"),
     State("upload-data", "filename"),
     prevent_initial_call=True,
 )
-def load_upload(contents, filename):
-    if not contents:
+def load_upload(contents, m5_clicks, filename):
+    if ctx.triggered_id == "load-m5-button":
+        if not m5_clicks:
+            return no_update, no_update, no_update, no_update, no_update
+    elif not contents:
         return no_update, no_update, no_update, no_update, no_update
     try:
-        frame = parse_upload(contents)
+        if ctx.triggered_id == "load-m5-button":
+            frame = load_repository_m5_sample()
+            source = "repository M5 sample"
+        else:
+            frame = parse_upload(contents)
+            source = filename or "uploaded CSV"
         payload = frame.assign(date=frame["date"].dt.strftime("%Y-%m-%d")).to_dict("records")
         series = sorted(frame["series_id"].unique().tolist())
         options = [{"label": value, "value": value} for value in series]
-        msg = f"Loaded {len(frame):,} daily rows across {len(series):,} series from {filename or 'CSV'}."
+        msg = f"Loaded {len(frame):,} daily rows across {len(series):,} series from {source}."
         return payload, options, series[0], msg, f"{len(series):,} series loaded"
-    except ValueError as exc:
-        return None, [], None, f"Upload error: {exc}", "Invalid upload"
+    except (ValueError, FileNotFoundError, RuntimeError, ImportError) as exc:
+        return None, [], None, f"Data load error: {exc}", "Data unavailable"
 
 
 @app.callback(
