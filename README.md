@@ -2,7 +2,7 @@
 
 A retail decision-support platform for forecasting product demand across the M5 Walmart hierarchy and converting forecasts into constrained replenishment recommendations.
 
-> **Project status:** Foundation in progress. Model accuracy, forecast intervals, reconciliation quality, and inventory savings will be reported only after reproducible experiments; no performance figures are fabricated.
+
 
 ## Problem
 
