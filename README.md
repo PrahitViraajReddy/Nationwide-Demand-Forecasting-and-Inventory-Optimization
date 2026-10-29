@@ -138,11 +138,4 @@ Additional modules provide a Prophet benchmark with interval-coverage metrics (`
 
 Outputs are written to `artifacts/` (ignored by Git): `metrics.json` and `lightgbm_validation_forecasts.csv`. Results from this limited subset are development metrics, not full M5 benchmark claims.
 
-## Render deployment
-
-For the current interactive Dash demo, set the Render service root to the repository root and use:
-
-- **Build command:** `pip install -r requirements-render.txt`
-- **Start command:** `python app.py`
-
-The deployment requirements include Dash and OR-Tools for the baseline forecasting and replenishment workflow, but intentionally exclude the training stack (Prophet, LightGBM, PyTorch Forecasting, and Darts). Advanced model experiments run in a full local environment. On page startup, the dashboard automatically attempts to load the first 20 item-store series from the M5 CSV files already tracked in the repository through Git LFS. No manual CSV upload is required. If Render checks out LFS pointer files instead of the actual dataset, the dashboard will show a clear data-loading error; fix Git LFS object access in the deployment rather than uploading the dataset again.
+# Live:https://nationwide-demand-forecasting-and-xc5l.onrender.com
